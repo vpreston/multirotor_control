@@ -29,7 +29,7 @@ class MCN():
         self.x = 1500.0 #Roll
         self.y = 1500.0 #Pitch
         self.z = 1000.0 #Throttle
-        self.yaw = 1500.0 #Yaw
+        self.heading = 1500.0 #Yaw
         #read in data of interest
         self.alt = 0.0
         self.init_alt = 0.0
@@ -50,9 +50,12 @@ class MCN():
         self.xpos_init = 0
         self.ypos_init = 0
         self.zpos_init = 0
-        self.roll = 0
-        self.pitch = 0
-        self.yaw = 0
+        self.roll = np.array([0,0,0,0,0,0,0,0,0,0,0,0,0,0])
+        self.pitch = np.array([0,0,0,0,0,0,0,0,0,0,0,0,0,0])
+        self.yaw = np.array([0,0,0,0,0,0,0,0,0,0,0,0,0,0])
+        self.roll_init = 0
+        self.pitch_init = 0
+        self.yaw_init = 0
         self.rollspeed = 0
         self.pitchspeed = 0
         self.yawspeed =  0
@@ -125,7 +128,7 @@ class MCN():
         self.x = 1500-self.axes[0]*300 #Scales 1200-1800
         self.y = 1500-self.axes[1]*300 #Scales 1200-1800
         self.z = 2000+(self.axes[3])*1000 #Scales 1000-3000
-        self.yaw = 1500-self.axes[2]*300 #Scales 1200-1800
+        self.heading = 1500-self.axes[2]*300 #Scales 1200-1800
 
     def state_check(self, data):
         #Determines whether vehicle is armed and therefore able to receive commands
@@ -164,18 +167,26 @@ class MCN():
 
     def parse_attitude(self, data):
         #Reads in data of interest from the vehicle
-        self.roll = float(data.roll)
-        self.pitch = float(data.pitch)
-        self.yaw = -float(data.yaw)
+        self.roll = np.delete(self.roll, [0])
+        self.roll = np.append(self.roll,[float(data.roll)])
+        self.pitch = np.delete(self.pitch, [0])
+        self.pitch = np.append(self.pitch,[float(data.pitch)])
+        self.yaw = np.delete(self.yaw, [0])
+        self.yaw = np.append(self.yaw,[float(data.yaw)])
         self.rollspeed = float(data.rollspeed)
         self.pitchspeed = float(data.pitchspeed)
         self.yawspeed =  float(data.yawspeed)
+
+        if self.count == 10:
+            self.roll_init = float(data.roll)
+            self.pitch_init = float(data.pitch)
+            self.yaw_init = float(data.yaw)
 
     def parse_altitude(self, data):
         #Reads in data of interest from the vehicle
         self.alt = float(data.alt)
 
-        if self.count == 9:
+        if self.count == 10:
             self.init_alt = float(data.alt)
 
     def hover_uncompensated(self):
@@ -222,7 +233,7 @@ class MCN():
                 self.risen = False
         elif self.failsafe:
             self.command_serv(7) #Put in stabilized mode
-            (self.twist[0], self.twist[1], self.twist[2], self.twist[3]) = (int(self.x), int(self.y), int(self.z), int(self.yaw))
+            (self.twist[0], self.twist[1], self.twist[2], self.twist[3]) = (int(self.x), int(self.y), int(self.z), int(self.heading))
         
         self.pub_rc.publish(self.twist)
 
@@ -237,6 +248,10 @@ class MCN():
         yaverage = np.average(self.ymag)
         zaverage = np.average(self.zmag)
 
+        rollaverage = np.average(self.roll)
+        pitchaverage = np.average(self.pitch)
+        yawaverage = np.average(self.yaw)
+
         #Calculate desired pitch and roll orientations based upon acceleration of x and y
         xerror = xd - xaverage
         yerror = yd - yaverage
@@ -248,12 +263,12 @@ class MCN():
         zerrorv = -(zerror - self.oldzerror)/0.2
         zerrora = -(zerrorv - self.oldzerrorv)/0.2
 
-        pd = self.g*yerrora*np.cos(hd)
-        td = -self.g*xerrora*np.cos(hd)
+        pd = self.g*(xerrora*np.sin(yawaverage) - yerrora*np.cos(yawaverage))
+        td = self.g*(xerrora*np.cos(yawaverage) + yerrora*np.sin(yawaverage))
 
-        phierror = pd - self.roll - 0.2*self.rollspeed
-        psierror = hd - self.yaw - 0.2*self.yawspeed
-        thetaerror = td - self.pitch - 0.2*self.pitchspeed
+        phierror = pd - rollaverage 
+        psierror = hd - yawaverage 
+        thetaerror = td - pitchaverage
         phierrv = -(phierror - self.oldphierror)/0.2
         phierra = -(phierrv - self.oldphierrv)/0.2
         psierrv = -(psierror - self.oldpsierror)/0.2
@@ -264,14 +279,14 @@ class MCN():
         phival = phierra * self.jxx/(self.l*self.bt)
         psival = psierra * self.jzz/(self.bh)
         thetaval = thetaerra * self.jyy/(self.l*self.bt)
-        zval = (zerrora - self.g)/ (self.mm+self.mq)
+        zval = (zerrora + self.g)/ (self.mm+self.mq)
 
         T4 = -self.g*(4*self.mm+self.mq)#(zval - psival - 2*phival)/4
         T1 = -self.g*(4*self.mm+self.mq)#(psival - thetaval + phival + 2*T4)/2
         T2 = -self.g*(4*self.mm+self.mq)#phival + T4
         T3 = -self.g*(4*self.mm+self.mq)#thetaval + T1
 
-        print[zerror]
+        print[zerrora, phierror, phierrv, phierra]
 
         w1 = np.sqrt(T1/self.bt)
         w2 = np.sqrt(T2/self.bt)

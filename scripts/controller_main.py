@@ -279,14 +279,14 @@ class MCN():
         phival = phierra * self.jxx/(self.l*self.bt)
         psival = psierra * self.jzz/(self.bh)
         thetaval = thetaerra * self.jyy/(self.l*self.bt)
-        zval = (zerrora + self.g)/ (self.mm+self.mq)
+        zval = -(zerrora + self.g)/ (4*self.mm+self.mq)
 
-        T4 = -self.g*(4*self.mm+self.mq)#(zval - psival - 2*phival)/4
+        T4 = (zval - psival - 2*phival)/4
         T1 = -self.g*(4*self.mm+self.mq)#(psival - thetaval + phival + 2*T4)/2
         T2 = -self.g*(4*self.mm+self.mq)#phival + T4
         T3 = -self.g*(4*self.mm+self.mq)#thetaval + T1
 
-        print[zerrora, phierror, phierrv, phierra]
+        print[zval, zerrora, T4]
 
         w1 = np.sqrt(T1/self.bt)
         w2 = np.sqrt(T2/self.bt)

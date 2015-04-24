@@ -281,23 +281,33 @@ class MCN():
         thetaval = thetaerra * self.jyy/(self.l*self.bt)
         zval = -(zerrora + self.g)/ (4*self.mm+self.mq)
 
-        T4 = (zval - psival - 2*phival)/4
-        T1 = -self.g*(4*self.mm+self.mq)#(psival - thetaval + phival + 2*T4)/2
-        T2 = -self.g*(4*self.mm+self.mq)#phival + T4
-        T3 = -self.g*(4*self.mm+self.mq)#thetaval + T1
+        # T4 = (zval - psival - 2*phival)/4
+        # T1 = -self.g*(4*self.mm+self.mq)#(psival - thetaval + phival + 2*T4)/2
+        # T2 = -self.g*(4*self.mm+self.mq)#phival + T4
+        # T3 = -self.g*(4*self.mm+self.mq)#thetaval + T1
 
-        print[zval, zerrora, T4]
+        print[phival, thetaval, zval, psival]
 
-        w1 = np.sqrt(T1/self.bt)
-        w2 = np.sqrt(T2/self.bt)
-        w3 = np.sqrt(T3/self.bt)
-        w4 = np.sqrt(T4/self.bt)
+        # w1 = np.sqrt(T1/self.bt)
+        # w2 = np.sqrt(T2/self.bt)
+        # w3 = np.sqrt(T3/self.bt)
+        # w4 = np.sqrt(T4/self.bt)
 
-        sig1 = (w1 + 60)/0.5
-        sig2 = (w2 + 60)/0.5
-        sig3 = (w3 + 60)/0.5
-        sig4 = (w4 + 60)/0.5
-        #print [int(sig1), int(sig2), int(sig3), int(sig4)]
+        # sig1 = (w1 + 60)/0.5
+        # sig2 = (w2 + 60)/0.5
+        # sig3 = (w3 + 60)/0.5
+        # sig4 = (w4 + 60)/0.5
+
+        #Set baseline of lifting off the ground, then track the changes for lowering or raising
+        Throttle = -self.g*(4*self.mm+self.mq) + zval
+
+        #Limit roll and pitch to 45 degrees angle, yaw can basically be whatever it wants, throttle scaled to min and max spin speeds
+        sig_roll = (500/(np.pi*4)*(phival + 0.75*np.pi))
+        sig_pitch = (500/(np.pi*4)*(thetaval + 0.75*np.pi))
+        sig_throttle = (np.sqrt(Throttle/self.bt) + 60)/0.5
+        sig_yaw = (1000/(2*np.pi)*(psival + 2*np.pi))
+
+        print [int(sig_roll), int(sig_pitch), int(sig_throttle), int(sig_yaw)]
 
         self.oldxerror = xerror
         self.oldyerror = yerror
@@ -334,7 +344,7 @@ class MCN():
 
         if self.armed and not self.failsafe:
             print 'publishing'
-            (self.twist[0], self.twist[1], self.twist[2], self.twist[3]) = (int(sig1), int(sig2), int(sig3), int(sig4))
+            (self.twist[0], self.twist[1], self.twist[2], self.twist[3]) = (int(sig_roll), int(sig_pitch), int(sig_throttle), int(sig_yaw))
 
         elif self.failsafe:
             self.command_serv(2) #Sends the land command

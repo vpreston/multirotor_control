@@ -241,16 +241,16 @@ class MCN():
         #TODO Read in desired vector, convert to desired orientation
         xd = self.desire['x'] + self.xpos_init
         yd = self.desire['y'] + self.ypos_init
-        zd = self.desire['z'] + self.init_alt
+        zd = 0 #self.desire['z'] + self.init_alt
         # hd = self.desire['h'] 
 
-        xaverage = np.average(self.xmag)
-        yaverage = np.average(self.ymag)
-        zaverage = np.average(self.zmag)
+        xaverage = np.average(self.xmag) * 1.18
+        yaverage = np.average(self.ymag) * 1.18
+        zaverage = np.average(self.zmag) * 1.18
 
-        rollaverage = np.average(self.roll)
-        pitchaverage = np.average(self.pitch)
-        yawaverage = np.average(self.yaw)
+        rollaverage = np.average(self.roll) * 1.18
+        pitchaverage = np.average(self.pitch) * 1.18
+        yawaverage = np.average(self.yaw) * 1.18
 
         #Calculate desired pitch and roll orientations based upon acceleration of x and y
         xerror = xd - xaverage
@@ -266,9 +266,9 @@ class MCN():
         pd = self.g*(xerror*np.sin(yawaverage) - yerror*np.cos(yawaverage))
         td = self.g*(xerror*np.cos(yawaverage) + yerror*np.sin(yawaverage))
 
-        phierror = pd - rollaverage 
+        phierror = 0 #pd - rollaverage 
         psierror = 0 #hd - yawaverage 
-        thetaerror = td - pitchaverage
+        thetaerror = 0 #td - pitchaverage
         phierrv = -(phierror - self.oldphierror)/0.16
         phierra = -(phierrv - self.oldphierrv)/0.16
         psierrv = -(psierror - self.oldpsierror)/0.16
@@ -279,24 +279,7 @@ class MCN():
         phival = phierror - phierra/40 - phierrv/4 #flag for constant
         psival = psierror + 0.001*psierra * self.jzz/(self.bh) #flag for constant
         thetaval = thetaerror + 0.00001*thetaerra * self.jyy/(self.l*self.bt) #flag for constant
-        zval = zerror + (zerrora - self.g) * (4*self.mm+self.mq)
-
-        # T4 = (zval - psival - 2*phival)/4
-        # T1 = -self.g*(4*self.mm+self.mq)#(psival - thetaval + phival + 2*T4)/2
-        # T2 = -self.g*(4*self.mm+self.mq)#phival + T4
-        # T3 = -self.g*(4*self.mm+self.mq)#thetaval + T1
-
-        # print[phierror]
-
-        # w1 = np.sqrt(T1/self.bt)
-        # w2 = np.sqrt(T2/self.bt)
-        # w3 = np.sqrt(T3/self.bt)
-        # w4 = np.sqrt(T4/self.bt)
-
-        # sig1 = (w1 + 60)/0.5
-        # sig2 = (w2 + 60)/0.5
-        # sig3 = (w3 + 60)/0.5
-        # sig4 = (w4 + 60)/0.5
+        zval = zerror - (0.1*zerrora + self.g) * (4*self.mm+self.mq) 
 
         #Set baseline of lifting off the ground, then track the changes for lowering or raising
         Throttle = zval
@@ -319,7 +302,7 @@ class MCN():
         elif sig_throttle > 2000:
             sig_throttle = 2000
 
-        print sig_yaw
+        print [int(sig_throttle)]
         #print [int(sig_roll), int(sig_pitch), int(sig_throttle), int(sig_yaw)]
 
         self.oldxerror = xerror

@@ -115,7 +115,7 @@ class MCN():
         self.jzz = (2*self.mq*self.r**2)/5 + 4*self.mm*self.l**2
         self.g = -9.8
         #controller
-        r = rospy.Rate(20) # 0.2 second loop rate
+        r = rospy.Rate(6) # 0.16 second loop rate
         while not rospy.is_shutdown():
             self.hover_loop()
             r.sleep()
@@ -256,12 +256,12 @@ class MCN():
         xerror = xd - xaverage
         yerror = yd - yaverage
         zerror = zd - self.alt
-        xerrorv = -(xerror - self.oldxerror)/0.2
-        xerrora = -(xerrorv - self.oldxerrorv)/0.2
-        yerrorv = -(yerror - self.oldyerror)/0.2
-        yerrora = -(yerrorv - self.oldyerrorv)/0.2
-        zerrorv = -(zerror - self.oldzerror)/0.2
-        zerrora = -(zerrorv - self.oldzerrorv)/0.2
+        xerrorv = -(xerror - self.oldxerror)/0.16
+        xerrora = -(xerrorv - self.oldxerrorv)/0.16
+        yerrorv = -(yerror - self.oldyerror)/0.16
+        yerrora = -(yerrorv - self.oldyerrorv)/0.16
+        zerrorv = -(zerror - self.oldzerror)/0.16
+        zerrora = -(zerrorv - self.oldzerrorv)/0.16
 
         pd = self.g*(xerrora*np.sin(yawaverage) - yerrora*np.cos(yawaverage))
         td = self.g*(xerrora*np.cos(yawaverage) + yerrora*np.sin(yawaverage))
@@ -269,24 +269,24 @@ class MCN():
         phierror = pd - rollaverage 
         psierror = hd - yawaverage 
         thetaerror = td - pitchaverage
-        phierrv = -(phierror - self.oldphierror)/0.2
-        phierra = -(phierrv - self.oldphierrv)/0.2
-        psierrv = -(psierror - self.oldpsierror)/0.2
-        psierra = -(psierrv - self.oldpsierrv)/0.2
-        thetaerrv = -(thetaerror - self.oldthetaerror)/0.2
-        thetaerra =  -(thetaerrv - self.oldthetaerrv)/0.2
+        phierrv = -(phierror - self.oldphierror)/0.16
+        phierra = -(phierrv - self.oldphierrv)/0.16
+        psierrv = -(psierror - self.oldpsierror)/0.16
+        psierra = -(psierrv - self.oldpsierrv)/0.16
+        thetaerrv = -(thetaerror - self.oldthetaerror)/0.16
+        thetaerra =  -(thetaerrv - self.oldthetaerrv)/0.16
 
-        phival = phierra * self.jxx/(self.l*self.bt)
-        psival = psierra * self.jzz/(self.bh)
-        thetaval = thetaerra * self.jyy/(self.l*self.bt)
-        zval = -(zerrora + self.g)/ (4*self.mm+self.mq)
+        phival = phierror + 0.00001*phierra * self.jxx/(self.l*self.bt) #flag for constant
+        psival = psierror + 0.001*psierra * self.jzz/(self.bh) #flag for constant
+        thetaval = thetaerror + 0.00001*thetaerra * self.jyy/(self.l*self.bt) #flag for constant
+        zval = zerror + (zerrora - self.g) * (4*self.mm+self.mq)
 
         # T4 = (zval - psival - 2*phival)/4
         # T1 = -self.g*(4*self.mm+self.mq)#(psival - thetaval + phival + 2*T4)/2
         # T2 = -self.g*(4*self.mm+self.mq)#phival + T4
         # T3 = -self.g*(4*self.mm+self.mq)#thetaval + T1
 
-        print[phival, thetaval, zval, psival]
+        # print[thetaerror, thetaerra, thetaval]
 
         # w1 = np.sqrt(T1/self.bt)
         # w2 = np.sqrt(T2/self.bt)
@@ -299,13 +299,25 @@ class MCN():
         # sig4 = (w4 + 60)/0.5
 
         #Set baseline of lifting off the ground, then track the changes for lowering or raising
-        Throttle = -self.g*(4*self.mm+self.mq) + zval
+        Throttle = zval
+        if np.abs(phival) > np.pi/4:
+            phival = (phival)/(np.abs(phival))*np.pi/4 
+        if np.abs(thetaval) > np.pi/4:
+            thetaval = (thetaval)/(np.abs(thetaval))*np.pi/4 
+        if np.abs(psival) > np.pi:
+            psival = (psival)/(np.abs(psival))*np.pi
+
 
         #Limit roll and pitch to 45 degrees angle, yaw can basically be whatever it wants, throttle scaled to min and max spin speeds
-        sig_roll = (500/(np.pi*4)*(phival + 0.75*np.pi))
-        sig_pitch = (500/(np.pi*4)*(thetaval + 0.75*np.pi))
-        sig_throttle = (np.sqrt(Throttle/self.bt) + 60)/0.5
-        sig_yaw = (1000/(2*np.pi)*(psival + 2*np.pi))
+        sig_roll = (500/(np.pi/4)*(phival + 0.75*np.pi))
+        sig_pitch = (500/(np.pi/4)*(thetaval + 0.75*np.pi))
+        sig_throttle = (np.sqrt(np.abs(Throttle)/self.bt) + 60)/0.5
+        sig_yaw = (500/(np.pi)*(psival + 2*np.pi))
+
+        if sig_throttle < 1000:
+            sig_throttle = 1000
+        elif sig_throttle > 2000:
+            sig_throttle = 2000
 
         print [int(sig_roll), int(sig_pitch), int(sig_throttle), int(sig_yaw)]
 
@@ -349,7 +361,7 @@ class MCN():
         elif self.failsafe:
             self.command_serv(2) #Sends the land command
 
-        #self.pub_rc.publish(self.twist)
+        self.pub_rc.publish(self.twist)
 
 
 if __name__ == '__main__':

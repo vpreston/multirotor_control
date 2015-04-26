@@ -37,22 +37,22 @@ class MCN():
         self.armed = False
         self.risen = False
         self.failsafe = False
-        self.xacc = np.array([0,0,0,0,0,0,0,0,0,0,0,0,0,0])
-        self.yacc = np.array([0,0,0,0,0,0,0,0,0,0,0,0,0,0])
-        self.zacc = np.array([0,0,0,0,0,0,0,0,0,0,0,0,0,0])
+        self.xacc = np.array([0,0,0,0,0,0])
+        self.yacc = np.array([0,0,0,0,0,0])
+        self.zacc = np.array([0,0,0,0,0,0])
         # self.xgyro = 0
         # self.ygyro = 0
         # self.zgyro = 0
-        self.xmag = np.array([0,0,0,0,0,0,0,0,0,0,0,0,0,0])
-        self.ymag = np.array([0,0,0,0,0,0,0,0,0,0,0,0,0,0])
-        self.zmag = np.array([0,0,0,0,0,0,0,0,0,0,0,0,0,0])
+        self.xmag = np.array([0,0,0,0,0,0])
+        self.ymag = np.array([0,0,0,0,0,0])
+        self.zmag = np.array([0,0,0,0,0,0])
         self.count = 0
         self.xpos_init = 0
         self.ypos_init = 0
         self.zpos_init = 0
-        self.roll = np.array([0,0,0,0,0,0,0,0,0,0,0,0,0,0])
-        self.pitch = np.array([0,0,0,0,0,0,0,0,0,0,0,0,0,0])
-        self.yaw = np.array([0,0,0,0,0,0,0,0,0,0,0,0,0,0])
+        self.roll = np.array([0,0,0,0,0,0])
+        self.pitch = np.array([0,0,0,0,0,0])
+        self.yaw = np.array([0,0,0,0,0,0])
         self.roll_init = 0
         self.pitch_init = 0
         self.yaw_init = 0
@@ -148,9 +148,6 @@ class MCN():
         self.yacc = np.append(self.yacc,[float(data.yacc)/1000 * 9.80665])
         self.zacc = np.delete(self.zacc, [0])
         self.zacc = np.append(self.zacc, [-float(data.zacc)/1000 * 9.80665])
-        # self.xgyro = float(data.xgyro)/1000
-        # self.ygyro = float(data.ygyro)/1000
-        # self.zgyro = -float(data.zgyro)/1000
         self.xmag = np.delete(self.xmag, [0])
         self.xmag = np.append(self.xmag,[(float(data.xmag)/100)])
         self.ymag = np.delete(self.ymag, [0])
@@ -158,7 +155,7 @@ class MCN():
         self.zmag = np.delete(self.zmag, [0])
         self.zmag = np.append(self.zmag, [-float(data.zmag)/100])
 
-        if self.count == 10:
+        if self.count == 5:
             self.xpos_init = (float(data.xmag)/100)
             self.ypos_init = (float(data.ymag)/100)
             self.zpos_init = (float(data.zmag)/100)
@@ -177,7 +174,7 @@ class MCN():
         self.pitchspeed = float(data.pitchspeed)
         self.yawspeed =  float(data.yawspeed)
 
-        if self.count == 10:
+        if self.count == 5:
             self.roll_init = float(data.roll)
             self.pitch_init = float(data.pitch)
             self.yaw_init = float(data.yaw)
@@ -186,7 +183,7 @@ class MCN():
         #Reads in data of interest from the vehicle
         self.alt = float(data.alt)
 
-        if self.count == 10:
+        if self.count == 5:
             self.init_alt = float(data.alt)
 
     def hover_uncompensated(self):
@@ -241,7 +238,7 @@ class MCN():
         #TODO Read in desired vector, convert to desired orientation
         xd = self.desire['x'] + self.xpos_init
         yd = self.desire['y'] + self.ypos_init
-        zd = 0 #self.desire['z'] + self.init_alt
+        zd = self.desire['z'] + self.init_alt
         # hd = self.desire['h'] 
 
         xaverage = np.average(self.xmag) * 1.18
@@ -260,6 +257,8 @@ class MCN():
         xerrora = -(xerrorv - self.oldxerrorv)/0.16
         yerrorv = -(yerror - self.oldyerror)/0.16
         yerrora = -(yerrorv - self.oldyerrorv)/0.16
+
+        #TODO add sensor feedback for acceleration
         zerrorv = -(zerror - self.oldzerror)/0.16
         zerrora = -(zerrorv - self.oldzerrorv)/0.16
 
@@ -279,7 +278,7 @@ class MCN():
         phival = phierror - phierra/40 - phierrv/4 #flag for constant
         psival = psierror + 0.001*psierra * self.jzz/(self.bh) #flag for constant
         thetaval = thetaerror + 0.00001*thetaerra * self.jyy/(self.l*self.bt) #flag for constant
-        zval = zerror - (0.1*zerrora + self.g) * (4*self.mm+self.mq) 
+        zval = zerror - (0.1*zerrora - (np.average(self.zacc))) * (4*self.mm+self.mq) 
 
         #Set baseline of lifting off the ground, then track the changes for lowering or raising
         Throttle = zval
@@ -290,11 +289,10 @@ class MCN():
         if np.abs(psival) > 180:
             psival = (psival)/(np.abs(psival))*180
 
-
         #Limit roll and pitch to 45 degrees angle, yaw can basically be whatever it wants, throttle scaled to min and max spin speeds
         sig_roll = (500.0/45.0*(phival + 135.0))
         sig_pitch = (500.0/45.0*(thetaval + 135.0))
-        sig_throttle = (np.sqrt(np.abs(Throttle)/self.bt) + 60)/0.5
+        sig_throttle = (np.sqrt(np.abs(Throttle)/self.bt) + 70)/0.5
         sig_yaw = (500.0/np.pi*(psival + 3*np.pi))
 
         if sig_throttle < 1000:
@@ -302,8 +300,7 @@ class MCN():
         elif sig_throttle > 2000:
             sig_throttle = 2000
 
-        print [int(sig_throttle)]
-        #print [int(sig_roll), int(sig_pitch), int(sig_throttle), int(sig_yaw)]
+        print [int(np.average(self.zacc)), int(zval), int(sig_throttle)]
 
         self.oldxerror = xerror
         self.oldyerror = yerror
@@ -327,8 +324,6 @@ class MCN():
                 self.command_serv(4)
                 self.risen = False
                 print 'Disarm Quad'
-                plt.plot(self.plt_alt)
-                plt.show()
             if self.buttons[2]: #Arm
                 self.command_serv(3)
                 print 'Arm Quad'

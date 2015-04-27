@@ -75,7 +75,6 @@ class MCN():
         self.zerrora = 0
         self.oldzerror = 0
         self.oldzerrorv = 0
-
         self.psierror = 0
         self.psierrv = 0
         self.psierra = 0
@@ -91,7 +90,6 @@ class MCN():
         self.thetaerra = 0
         self.oldthetaerror = 0
         self.oldthetaerrv = 0
-
         self.last_x = 0
         #set up communications protocol
         self.pub_rc = rospy.Publisher('/send_rc', roscopter.msg.RC)
@@ -162,6 +160,7 @@ class MCN():
         self.zmag = np.append(self.zmag, [-float(data.zmag)/100])
 
         if self.armed and self.count == 1:
+            print 'assigning'
             self.xpos_init = (float(data.xmag)/100)
             self.ypos_init = (float(data.ymag)/100)
             self.zpos_init = (float(data.zmag)/100)
@@ -269,8 +268,8 @@ class MCN():
         zerrorv = -(zerror - self.oldzerror)/0.16
         zerrora = -(zerrorv - self.oldzerrorv)/0.16
 
-        pd = self.g*(np.average(self.xacc)*np.sin(yawaverage) - np.average(self.yacc)*np.cos(yawaverage))
-        td = self.g*(np.average(self.xacc)*np.cos(yawaverage) + np.average(self.yacc)*np.sin(yawaverage))
+        pd = self.g*(np.average(self.xacc)*np.sin(yawaverage) - np.average(self.yacc)*np.cos(yawaverage)) + (np.average(xerror)*np.sin(yawaverage) - np.average(yerror)*np.cos(yawaverage))
+        td = self.g*(np.average(self.xacc)*np.cos(yawaverage) + np.average(self.yacc)*np.sin(yawaverage)) + (np.average(xerror)*np.cos(yawaverage) + np.average(yerror)*np.sin(yawaverage))
 
         phierror = pd - rollaverage 
         phierrv = -(phierror - self.oldphierror)/0.16 
@@ -311,7 +310,8 @@ class MCN():
         elif sig_throttle > 2000:
             sig_throttle = 2000
 
-        print [int(td), int(thetaval), int(sig_pitch)]
+        
+        print [int(sig_roll), int(sig_pitch), int(sig_throttle), int(sig_yaw)]
 
         #get ready for next loop by reassigning values
         self.oldxerror = xerror
@@ -335,6 +335,9 @@ class MCN():
                 print 'Disarm Quad'
             if self.buttons[2]: #Arm
                 self.command_serv(3)
+                self.count = 1
+                rospy.sleep(5)
+                self.count -= 1
                 print 'Arm Quad'
             if self.buttons[0]: #Failsafe
                 self.failsafe = True

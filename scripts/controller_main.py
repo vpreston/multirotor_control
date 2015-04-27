@@ -118,7 +118,6 @@ class MCN():
             self.hover_loop()
             r.sleep()
 
-
     def joy_callback(self, data):
         #Reads in joystick controller positions and information
         self.axes = data.axes
@@ -299,8 +298,8 @@ class MCN():
             psival = (psival)/(np.abs(psival))*180
 
         #scale transfer function outputs to something to be understood by the multicopter
-        sig_roll = (500.0/45.0*(-phival + 135.0))
-        sig_pitch = (500.0/45.0*(thetaval + 135.0))
+        sig_roll = 1500 #(500.0/45.0*(phival + 135.0))
+        sig_pitch = 1300 #(500.0/45.0*(thetaval + 135.0))
         sig_throttle = (np.sqrt(np.abs(zval)/self.bt) + 70)/0.5 #flag for experimental tuning (power needed by motors to lift)
         sig_yaw = (500.0/np.pi*(psival + 3*np.pi)) #should always be neutral if don't care about heading
 
@@ -335,8 +334,9 @@ class MCN():
                 print 'Disarm Quad'
             if self.buttons[2]: #Arm
                 self.command_serv(3)
+                #self.command_serv(5)
                 self.count = 1
-                rospy.sleep(5)
+                rospy.sleep(1)
                 self.count -= 1
                 print 'Arm Quad'
             if self.buttons[0]: #Failsafe
@@ -349,7 +349,7 @@ class MCN():
         elif self.failsafe:
             self.command_serv(2) #Sends the land command
 
-        # self.pub_rc.publish(self.twist)
+        self.pub_rc.publish(self.twist)
 
 
 if __name__ == '__main__':

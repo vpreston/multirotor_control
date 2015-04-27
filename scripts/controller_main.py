@@ -155,12 +155,10 @@ class MCN():
         self.zmag = np.delete(self.zmag, [0])
         self.zmag = np.append(self.zmag, [-float(data.zmag)/100])
 
-        if self.count == 5:
+        if self.armed and self.count == 1:
             self.xpos_init = (float(data.xmag)/100)
             self.ypos_init = (float(data.ymag)/100)
             self.zpos_init = (float(data.zmag)/100)
-
-        self.count += 1
 
     def parse_attitude(self, data):
         #Reads in data of interest from the vehicle
@@ -174,7 +172,7 @@ class MCN():
         self.pitchspeed = float(data.pitchspeed)
         self.yawspeed =  float(data.yawspeed)
 
-        if self.count == 5:
+        if self.armed and self.count == 1:
             self.roll_init = float(data.roll)
             self.pitch_init = float(data.pitch)
             self.yaw_init = float(data.yaw)
@@ -183,7 +181,7 @@ class MCN():
         #Reads in data of interest from the vehicle
         self.alt = float(data.alt)
 
-        if self.count == 5:
+        if self.armed and self.count == 1:
             self.init_alt = float(data.alt)
 
     def hover_uncompensated(self):
@@ -197,6 +195,7 @@ class MCN():
                 plt.show()
             if self.buttons[2]: #Arm
                 self.command_serv(3)
+                self.count += 1
                 print 'Arm Quad'
             if self.buttons[0]: #Failsafe
                 self.command_serv(8)
@@ -235,32 +234,26 @@ class MCN():
         self.pub_rc.publish(self.twist)
 
     def hover_loop(self):
-        #TODO Read in desired vector, convert to desired orientation
+        # read in a desired vector, account for armed offsets, and go to that position in relative space. Assuming GPS deprived environment. You might consider this dead-reckoning
+        
+        #desired values with offsets
         xd = self.desire['x'] + self.xpos_init
         yd = self.desire['y'] + self.ypos_init
         zd = self.desire['z'] + self.init_alt
-        # hd = self.desire['h'] 
+        # hd = self.desire['h'] #Comment out if don't care about heading information (given that multirotors can 'strafe' probably reasonable)
 
+        #from the magnetometer and barometer, get a sense of relative position in space. 1.18 is compensating for delay in the system as per the transfer function
         xaverage = np.average(self.xmag) * 1.18
         yaverage = np.average(self.ymag) * 1.18
         zaverage = np.average(self.zmag) * 1.18
-
         rollaverage = np.average(self.roll) * 1.18
         pitchaverage = np.average(self.pitch) * 1.18
         yawaverage = np.average(self.yaw) * 1.18
 
-        #Calculate desired pitch and roll orientations based upon acceleration of x and y
+        #calculate the error in desired positions and actual
         xerror = xd - xaverage
         yerror = yd - yaverage
         zerror = zd - self.alt
-        xerrorv = -(xerror - self.oldxerror)/0.16
-        xerrora = -(xerrorv - self.oldxerrorv)/0.16
-        yerrorv = -(yerror - self.oldyerror)/0.16
-        yerrora = -(yerrorv - self.oldyerrorv)/0.16
-
-        #TODO add sensor feedback for acceleration
-        zerrorv = -(zerror - self.oldzerror)/0.16
-        zerrora = -(zerrorv - self.oldzerrorv)/0.16
 
         pd = self.g*(xerror*np.sin(yawaverage) - yerror*np.cos(yawaverage))
         td = self.g*(xerror*np.cos(yawaverage) + yerror*np.sin(yawaverage))
@@ -268,6 +261,14 @@ class MCN():
         phierror = 0 #pd - rollaverage 
         psierror = 0 #hd - yawaverage 
         thetaerror = 0 #td - pitchaverage
+
+        #calculate how quickly the error is changing
+        xerrorv = -(xerror - self.oldxerror)/0.16
+        xerrora = -(xerrorv - self.oldxerrorv)/0.16
+        yerrorv = -(yerror - self.oldyerror)/0.16
+        yerrora = -(yerrorv - self.oldyerrorv)/0.16
+        zerrorv = -(zerror - self.oldzerror)/0.16
+        zerrora = -(zerrorv - self.oldzerrorv)/0.16
         phierrv = -(phierror - self.oldphierror)/0.16
         phierra = -(phierrv - self.oldphierrv)/0.16
         psierrv = -(psierror - self.oldpsierror)/0.16
@@ -275,12 +276,13 @@ class MCN():
         thetaerrv = -(thetaerror - self.oldthetaerror)/0.16
         thetaerra =  -(thetaerrv - self.oldthetaerrv)/0.16
 
+        #convert known information to control variables
         phival = phierror - phierra/40 - phierrv/4 #flag for constant
         psival = psierror + 0.001*psierra * self.jzz/(self.bh) #flag for constant
         thetaval = thetaerror + 0.00001*thetaerra * self.jyy/(self.l*self.bt) #flag for constant
         zval = zerror - (0.1*zerrora - (np.average(self.zacc))) * (4*self.mm+self.mq) 
 
-        #Set baseline of lifting off the ground, then track the changes for lowering or raising
+        #make sure that errant values do not cause flipping or radical behavior
         Throttle = zval
         if np.abs(phival) > 45:
             phival = (phival)/(np.abs(phival))*45 
@@ -289,12 +291,13 @@ class MCN():
         if np.abs(psival) > 180:
             psival = (psival)/(np.abs(psival))*180
 
-        #Limit roll and pitch to 45 degrees angle, yaw can basically be whatever it wants, throttle scaled to min and max spin speeds
+        #scale transfer function outputs to something to be understood by the multicopter
         sig_roll = (500.0/45.0*(phival + 135.0))
         sig_pitch = (500.0/45.0*(thetaval + 135.0))
         sig_throttle = (np.sqrt(np.abs(Throttle)/self.bt) + 70)/0.5
         sig_yaw = (500.0/np.pi*(psival + 3*np.pi))
 
+        #make sure that errant values do not cause flipping or radical behavior
         if sig_throttle < 1000:
             sig_throttle = 1000
         elif sig_throttle > 2000:
@@ -302,23 +305,21 @@ class MCN():
 
         print [int(np.average(self.zacc)), int(zval), int(sig_throttle)]
 
+        #get ready for next loop by reassigning values
         self.oldxerror = xerror
         self.oldyerror = yerror
         self.oldzerror = zerror
-        
         self.oldxerrorv = xerrorv
         self.oldyerrorv = yerrorv
         self.oldzerrorv = zerrorv
-
         self.oldphierror = phierror
         self.oldpsierror = psierror
         self.oldthetaerror = thetaerror
-
         self.oldphierrv = phierrv
         self.oldpsierrv = psierrv
         self.oldthetaerrv = thetaerrv
         
-        #Reads in information about vehicle in order to determine action
+        #read in information about joystick in order to determine action
         if self.buttons: #If button pressed
             if self.buttons[3]: #Disarm and plot data from flight
                 self.command_serv(4)
@@ -328,15 +329,12 @@ class MCN():
                 self.command_serv(3)
                 print 'Arm Quad'
             if self.buttons[0]: #Failsafe
-                self.command_serv(8)
                 self.failsafe = True
                 print 'Failsafe'
-                rospy.sleep(5)
 
+        #assuming everything is well, publich the loop to the multicopter, else, land
         if self.armed and not self.failsafe:
-            print 'publishing'
             (self.twist[0], self.twist[1], self.twist[2], self.twist[3]) = (int(sig_roll), int(sig_pitch), int(sig_throttle), int(sig_yaw))
-
         elif self.failsafe:
             self.command_serv(2) #Sends the land command
 
@@ -349,4 +347,3 @@ if __name__ == '__main__':
         var = MCN()
         rospy.spin()
     except rospy.ROSInterruptException: pass
-    #TODO Groundspeed/Airspeed control loop to have stable vertical flight

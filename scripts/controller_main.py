@@ -40,9 +40,9 @@ class MCN():
         self.xacc = np.array([0,0,0,0,0,0])
         self.yacc = np.array([0,0,0,0,0,0])
         self.zacc = np.array([0,0,0,0,0,0])
-        # self.xgyro = 0
-        # self.ygyro = 0
-        # self.zgyro = 0
+        self.xgyro = np.array([0,0,0,0,0,0])
+        self.ygyro = np.array([0,0,0,0,0,0])
+        self.zgyro = np.array([0,0,0,0,0,0])
         self.xmag = np.array([0,0,0,0,0,0])
         self.ymag = np.array([0,0,0,0,0,0])
         self.zmag = np.array([0,0,0,0,0,0])
@@ -148,6 +148,12 @@ class MCN():
         self.yacc = np.append(self.yacc,[float(data.yacc)/1000 * 9.80665])
         self.zacc = np.delete(self.zacc, [0])
         self.zacc = np.append(self.zacc, [-float(data.zacc)/1000 * 9.80665])
+        self.xgyro = np.delete(self.xgyro, [0])
+        self.xgyro = np.append(self.xgyro, [float(data.xgyro)/1000])
+        self.ygyro = np.delete(self.ygyro, [0])
+        self.ygyro = np.append(self.ygyro, [float(data.ygyro)/1000])
+        self.zgyro = np.delete(self.zgyro, [0])
+        self.zgyro = np.append(self.zgyro, [float(data.zgyro)/1000])
         self.xmag = np.delete(self.xmag, [0])
         self.xmag = np.append(self.xmag,[(float(data.xmag)/100)])
         self.ymag = np.delete(self.ymag, [0])
@@ -252,38 +258,40 @@ class MCN():
 
         #calculate the error in desired positions and actual
         xerror = xd - xaverage
-        yerror = yd - yaverage
-        zerror = zd - self.alt
-
-        pd = self.g*(xerror*np.sin(yawaverage) - yerror*np.cos(yawaverage))
-        td = self.g*(xerror*np.cos(yawaverage) + yerror*np.sin(yawaverage))
-
-        phierror = 0 #pd - rollaverage 
-        psierror = 0 #hd - yawaverage 
-        thetaerror = 0 #td - pitchaverage
-
-        #calculate how quickly the error is changing
         xerrorv = -(xerror - self.oldxerror)/0.16
         xerrora = -(xerrorv - self.oldxerrorv)/0.16
+
+        yerror = yd - yaverage
         yerrorv = -(yerror - self.oldyerror)/0.16
         yerrora = -(yerrorv - self.oldyerrorv)/0.16
+
+        zerror = zd - self.alt
         zerrorv = -(zerror - self.oldzerror)/0.16
         zerrora = -(zerrorv - self.oldzerrorv)/0.16
-        phierrv = -(phierror - self.oldphierror)/0.16
+
+        pd = self.g*(np.average(self.xacc)*np.sin(yawaverage) - np.average(self.yacc)*np.cos(yawaverage))
+        td = self.g*(np.average(self.xacc)*np.cos(yawaverage) + np.average(self.yacc)*np.sin(yawaverage))
+
+        phierror = pd - rollaverage 
+        phierrv = -(phierror - self.oldphierror)/0.16 
         phierra = -(phierrv - self.oldphierrv)/0.16
+
+        psierror = 0 #hd - yawaverage 
         psierrv = -(psierror - self.oldpsierror)/0.16
         psierra = -(psierrv - self.oldpsierrv)/0.16
+
+        thetaerror = 0 #td - pitchaverage
         thetaerrv = -(thetaerror - self.oldthetaerror)/0.16
         thetaerra =  -(thetaerrv - self.oldthetaerrv)/0.16
+        
 
         #convert known information to control variables
-        phival = phierror - phierra/40 - phierrv/4 #flag for constant
+        phival = (phierror - 0.01 * phierra * (self.l*self.bt)/self.jxx - np.average(self.xgyro))*0.5
         psival = psierror + 0.001*psierra * self.jzz/(self.bh) #flag for constant
         thetaval = thetaerror + 0.00001*thetaerra * self.jyy/(self.l*self.bt) #flag for constant
         zval = zerror - (0.1*zerrora - (np.average(self.zacc))) * (4*self.mm+self.mq) 
 
         #make sure that errant values do not cause flipping or radical behavior
-        Throttle = zval
         if np.abs(phival) > 45:
             phival = (phival)/(np.abs(phival))*45 
         if np.abs(thetaval) > 45:
@@ -292,10 +300,10 @@ class MCN():
             psival = (psival)/(np.abs(psival))*180
 
         #scale transfer function outputs to something to be understood by the multicopter
-        sig_roll = (500.0/45.0*(phival + 135.0))
+        sig_roll = (500.0/45.0*(-phival + 135.0))
         sig_pitch = (500.0/45.0*(thetaval + 135.0))
-        sig_throttle = (np.sqrt(np.abs(Throttle)/self.bt) + 70)/0.5
-        sig_yaw = (500.0/np.pi*(psival + 3*np.pi))
+        sig_throttle = (np.sqrt(np.abs(zval)/self.bt) + 70)/0.5 #flag for experimental tuning (power needed by motors to lift)
+        sig_yaw = (500.0/np.pi*(psival + 3*np.pi)) #should always be neutral if don't care about heading
 
         #make sure that errant values do not cause flipping or radical behavior
         if sig_throttle < 1000:
@@ -303,7 +311,7 @@ class MCN():
         elif sig_throttle > 2000:
             sig_throttle = 2000
 
-        print [int(np.average(self.zacc)), int(zval), int(sig_throttle)]
+        print [int(pd), int(phival), int(sig_roll)]
 
         #get ready for next loop by reassigning values
         self.oldxerror = xerror

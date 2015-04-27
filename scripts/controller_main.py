@@ -280,7 +280,7 @@ class MCN():
         psierrv = -(psierror - self.oldpsierror)/0.16
         psierra = -(psierrv - self.oldpsierrv)/0.16
 
-        thetaerror = 0 #td - pitchaverage
+        thetaerror = td - pitchaverage
         thetaerrv = -(thetaerror - self.oldthetaerror)/0.16
         thetaerra =  -(thetaerrv - self.oldthetaerrv)/0.16
         
@@ -288,7 +288,7 @@ class MCN():
         #convert known information to control variables
         phival = (phierror - 0.01 * phierra * (self.l*self.bt)/self.jxx - np.average(self.xgyro))*0.5
         psival = psierror + 0.001*psierra * self.jzz/(self.bh) #flag for constant
-        thetaval = thetaerror + 0.00001*thetaerra * self.jyy/(self.l*self.bt) #flag for constant
+        thetaval = (thetaerror - 0.01 * thetaerra * (self.l*self.bt)/self.jyy - np.average(self.ygyro))*0.5 #flag for constant
         zval = zerror - (0.1*zerrora - (np.average(self.zacc))) * (4*self.mm+self.mq) 
 
         #make sure that errant values do not cause flipping or radical behavior
@@ -311,7 +311,7 @@ class MCN():
         elif sig_throttle > 2000:
             sig_throttle = 2000
 
-        print [int(pd), int(phival), int(sig_roll)]
+        print [int(td), int(thetaval), int(sig_pitch)]
 
         #get ready for next loop by reassigning values
         self.oldxerror = xerror

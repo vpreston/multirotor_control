@@ -299,13 +299,13 @@ class MCN():
             psival = (psival)/(np.abs(psival))*180
 
         #scale transfer function outputs to something to be understood by the multicopter
-        sig_roll = (500.0/45.0*(phival + 135.0)) + 10
-        sig_pitch = (500.0/45.0*(thetaval + 135.0)) - 6
+        sig_roll = (500.0/45.0*(phival + 135.0)) + 3
+        sig_pitch = (500.0/45.0*(thetaval + 135.0)) 
         sig_yaw = (500.0/np.pi*(psival + 3*np.pi)) #should always be neutral if don't care about heading  
-        if self.saturator < 35:
-            sig_throttle = (np.sqrt(np.abs(zval)/self.bt) + 150)/0.5 - 17*(30 -self.saturator)
+        if self.saturator < 20:
+            sig_throttle = (np.sqrt(np.abs(zval)/self.bt) + 130)/0.5 - 17*(20 -self.saturator)
         else:
-            sig_throttle = (np.sqrt(np.abs(zval)/self.bt) + 150)/0.5 
+            sig_throttle = (np.sqrt(np.abs(zval)/self.bt) + 130)/0.5 
         
 
         #make sure that errant values do not cause flipping or radical behavior

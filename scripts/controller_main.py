@@ -287,7 +287,7 @@ class MCN():
         phival = (phierror - 0.01 * phierra * (self.l*self.bt)/self.jxx - np.average(self.xgyro))*0.5
         psival = psierror + 0.001*psierra * self.jzz/(self.bh) #flag for constant
         thetaval = (thetaerror - 0.01 * thetaerra * (self.l*self.bt)/self.jyy - np.average(self.ygyro))*0.5 #flag for constant
-        zval = zerror - (0.1*zerrora - (np.average(self.zacc))) * (4*self.mm+self.mq) 
+        zval = zerror - (4*self.mm+self.mq) * self.g #(0.1*zerrora + (np.average(self.zacc))) * (4*self.mm+self.mq) 
 
         #make sure that errant values do not cause flipping or radical behavior
         if np.abs(phival) > 45:
@@ -298,9 +298,9 @@ class MCN():
             psival = (psival)/(np.abs(psival))*180
 
         #scale transfer function outputs to something to be understood by the multicopter
-        sig_roll = 1500#(500.0/45.0*(phival + 135.0))
-        sig_pitch = (500.0/45.0*(thetaval + 135.0))
-        sig_throttle = 1200 #(np.sqrt(np.abs(zval)/self.bt) + 70)/0.5 #flag for experimental tuning (power needed by motors to lift)
+        sig_roll = 1500 #(500.0/45.0*(phival + 135.0))
+        sig_pitch = 1500 #(500.0/45.0*(thetaval + 135.0))
+        sig_throttle = (np.sqrt(np.abs(zval)/self.bt) + 60)/0.5 #flag for experimental tuning (power needed by motors to lift)
         sig_yaw = (500.0/np.pi*(psival + 3*np.pi)) #should always be neutral if don't care about heading
 
         #make sure that errant values do not cause flipping or radical behavior
@@ -310,7 +310,8 @@ class MCN():
             sig_throttle = 2000
 
         
-        print [int(sig_roll), int(sig_pitch), int(sig_throttle), int(sig_yaw)]
+        print [(zerror), int(zval), int(zerrora), int(np.average(self.zacc))]
+        #print [int(sig_roll), int(sig_pitch), int(sig_throttle), int(sig_yaw)]
 
         #get ready for next loop by reassigning values
         self.oldxerror = xerror
@@ -349,7 +350,7 @@ class MCN():
         elif self.failsafe:
             self.command_serv(2) #Sends the land command
 
-        self.pub_rc.publish(self.twist)
+        # self.pub_rc.publish(self.twist)
 
 
 if __name__ == '__main__':

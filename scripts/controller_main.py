@@ -299,15 +299,14 @@ class MCN():
             psival = (psival)/(np.abs(psival))*180
 
         #scale transfer function outputs to something to be understood by the multicopter
-        sig_roll = 1500 #(500.0/45.0*(phival + 135.0))
-        sig_pitch = 1500 #(500.0/45.0*(thetaval + 135.0))
+        sig_roll = (500.0/45.0*(phival + 135.0)) + 10
+        sig_pitch = (500.0/45.0*(thetaval + 135.0)) - 6
         sig_yaw = (500.0/np.pi*(psival + 3*np.pi)) #should always be neutral if don't care about heading  
-        if self.saturator < 30:
-            sig_throttle = (np.sqrt(np.abs(zval)/self.bt) + 60)/0.5 - 17*(30 -self.saturator)
+        if self.saturator < 35:
+            sig_throttle = (np.sqrt(np.abs(zval)/self.bt) + 150)/0.5 - 17*(30 -self.saturator)
         else:
-            sig_throttle = (np.sqrt(np.abs(zval)/self.bt) + 60)/0.5 
+            sig_throttle = (np.sqrt(np.abs(zval)/self.bt) + 150)/0.5 
         
-
 
         #make sure that errant values do not cause flipping or radical behavior
         if sig_throttle < 1000:
@@ -315,9 +314,8 @@ class MCN():
         elif sig_throttle > 2000:
             sig_throttle = 2000
 
-        
-        print [int(sig_throttle)]
-        #print [int(sig_roll), int(sig_pitch), int(sig_throttle), int(sig_yaw)]
+
+        print [int(sig_roll), int(sig_pitch), int(sig_throttle), int(sig_yaw)]
 
         #get ready for next loop by reassigning values
         self.oldxerror = xerror
@@ -357,7 +355,7 @@ class MCN():
         elif self.failsafe:
             self.command_serv(2) #Sends the land command
 
-        # self.pub_rc.publish(self.twist)
+        self.pub_rc.publish(self.twist)
 
 
 if __name__ == '__main__':

@@ -112,6 +112,7 @@ class MCN():
         self.jyy = (2*self.mq*self.r**2)/5 + 2*self.mm*self.l**2
         self.jzz = (2*self.mq*self.r**2)/5 + 4*self.mm*self.l**2
         self.g = -9.8
+        self.saturator = 0
         #controller
         r = rospy.Rate(6) # 0.16 second loop rate
         while not rospy.is_shutdown():
@@ -300,8 +301,13 @@ class MCN():
         #scale transfer function outputs to something to be understood by the multicopter
         sig_roll = 1500 #(500.0/45.0*(phival + 135.0))
         sig_pitch = 1500 #(500.0/45.0*(thetaval + 135.0))
-        sig_throttle = (np.sqrt(np.abs(zval)/self.bt) + 60)/0.5 #flag for experimental tuning (power needed by motors to lift)
-        sig_yaw = (500.0/np.pi*(psival + 3*np.pi)) #should always be neutral if don't care about heading
+        sig_yaw = (500.0/np.pi*(psival + 3*np.pi)) #should always be neutral if don't care about heading  
+        if self.saturator < 30:
+            sig_throttle = (np.sqrt(np.abs(zval)/self.bt) + 60)/0.5 - 17*(30 -self.saturator)
+        else:
+            sig_throttle = (np.sqrt(np.abs(zval)/self.bt) + 60)/0.5 
+        
+
 
         #make sure that errant values do not cause flipping or radical behavior
         if sig_throttle < 1000:
@@ -310,7 +316,7 @@ class MCN():
             sig_throttle = 2000
 
         
-        print [(zerror), int(zval), int(zerrora), int(np.average(self.zacc))]
+        print [int(sig_throttle)]
         #print [int(sig_roll), int(sig_pitch), int(sig_throttle), int(sig_yaw)]
 
         #get ready for next loop by reassigning values
@@ -346,6 +352,7 @@ class MCN():
 
         #assuming everything is well, publich the loop to the multicopter, else, land
         if self.armed and not self.failsafe:
+            self.saturator += 1
             (self.twist[0], self.twist[1], self.twist[2], self.twist[3]) = (int(sig_roll), int(sig_pitch), int(sig_throttle), int(sig_yaw))
         elif self.failsafe:
             self.command_serv(2) #Sends the land command

@@ -298,9 +298,9 @@ class MCN():
             psival = (psival)/(np.abs(psival))*180
 
         #scale transfer function outputs to something to be understood by the multicopter
-        sig_roll = 1500 #(500.0/45.0*(phival + 135.0))
-        sig_pitch = 1300 #(500.0/45.0*(thetaval + 135.0))
-        sig_throttle = (np.sqrt(np.abs(zval)/self.bt) + 70)/0.5 #flag for experimental tuning (power needed by motors to lift)
+        sig_roll = 1500#(500.0/45.0*(phival + 135.0))
+        sig_pitch = (500.0/45.0*(thetaval + 135.0))
+        sig_throttle = 1200 #(np.sqrt(np.abs(zval)/self.bt) + 70)/0.5 #flag for experimental tuning (power needed by motors to lift)
         sig_yaw = (500.0/np.pi*(psival + 3*np.pi)) #should always be neutral if don't care about heading
 
         #make sure that errant values do not cause flipping or radical behavior
@@ -334,10 +334,10 @@ class MCN():
                 print 'Disarm Quad'
             if self.buttons[2]: #Arm
                 self.command_serv(3)
-                #self.command_serv(5)
                 self.count = 1
                 rospy.sleep(1)
                 self.count -= 1
+                self.command_serv(7)
                 print 'Arm Quad'
             if self.buttons[0]: #Failsafe
                 self.failsafe = True

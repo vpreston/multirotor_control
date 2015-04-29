@@ -299,13 +299,13 @@ class MCN():
             psival = (psival)/(np.abs(psival))*180
 
         #scale transfer function outputs to something to be understood by the multicopter
-        sig_roll = (500.0/45.0*(phival + 135.0)) + 3
+        sig_roll = (500.0/45.0*(phival + 135.0)) 
         sig_pitch = (500.0/45.0*(thetaval + 135.0)) 
         sig_yaw = (500.0/np.pi*(psival + 3*np.pi)) #should always be neutral if don't care about heading  
         if self.saturator < 20:
-            sig_throttle = (np.sqrt(np.abs(zval)/self.bt) + 130)/0.5 - 17*(20 -self.saturator)
+            sig_throttle = (np.sqrt(np.abs(zval)/self.bt) + 140)/0.5 - 20*(20 -self.saturator)
         else:
-            sig_throttle = (np.sqrt(np.abs(zval)/self.bt) + 130)/0.5 
+            sig_throttle = (np.sqrt(np.abs(zval)/self.bt) + 140)/0.5 
         
 
         #make sure that errant values do not cause flipping or radical behavior
@@ -344,7 +344,7 @@ class MCN():
                 self.count -= 1
                 self.command_serv(7)
                 print 'Arm Quad'
-            if self.buttons[0]: #Failsafe
+            if self.buttons[0]:
                 self.failsafe = True
                 print 'Failsafe'
 
@@ -352,10 +352,10 @@ class MCN():
         if self.armed and not self.failsafe:
             self.saturator += 1
             (self.twist[0], self.twist[1], self.twist[2], self.twist[3]) = (int(sig_roll), int(sig_pitch), int(sig_throttle), int(sig_yaw))
-        elif self.failsafe:
-            self.command_serv(2) #Sends the land command
 
-        self.pub_rc.publish(self.twist)
+            self.pub_rc.publish(self.twist)
+        elif self.failsafe:
+            self.command_serv(4)
 
 
 if __name__ == '__main__':

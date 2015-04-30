@@ -268,8 +268,8 @@ class MCN():
         zerrorv = -(zerror - self.oldzerror)/0.16
         zerrora = -(zerrorv - self.oldzerrorv)/0.16
 
-        pd = self.g*(np.average(self.xacc)*np.sin(yawaverage) - np.average(self.yacc)*np.cos(yawaverage)) + (np.average(xerror)*np.sin(yawaverage) - np.average(yerror)*np.cos(yawaverage))
-        td = self.g*(np.average(self.xacc)*np.cos(yawaverage) + np.average(self.yacc)*np.sin(yawaverage)) + (np.average(xerror)*np.cos(yawaverage) + np.average(yerror)*np.sin(yawaverage))
+        pd = self.g*(np.average(self.xacc)*np.sin(yawaverage) - np.average(self.yacc)*np.cos(yawaverage)) + 2*(np.average(xerror)*np.sin(yawaverage) - np.average(yerror)*np.cos(yawaverage))
+        td = self.g*(np.average(self.xacc)*np.cos(yawaverage) + np.average(self.yacc)*np.sin(yawaverage)) + 2*(np.average(xerror)*np.cos(yawaverage) + np.average(yerror)*np.sin(yawaverage))
 
         phierror = pd - rollaverage 
         phierrv = -(phierror - self.oldphierror)/0.16 

@@ -346,6 +346,7 @@ class MCN():
                 print 'Arm Quad'
             if self.buttons[0]:
                 self.failsafe = True
+                self.commands_serv(4)
                 print 'Failsafe'
 
         #assuming everything is well, publich the loop to the multicopter, else, land
@@ -354,8 +355,6 @@ class MCN():
             (self.twist[0], self.twist[1], self.twist[2], self.twist[3]) = (int(sig_roll), int(sig_pitch), int(sig_throttle), int(sig_yaw))
 
             self.pub_rc.publish(self.twist)
-        elif self.failsafe:
-            self.command_serv(4)
 
 
 if __name__ == '__main__':

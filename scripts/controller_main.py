@@ -250,10 +250,10 @@ class MCN():
         # hd = self.desire['h'] #Comment out if don't care about heading information (given that multirotors can 'strafe' probably reasonable)
 
         #from the magnetometer and barometer, get a sense of relative position in space. 1.18 is compensating for delay in the system as per the transfer function
-        xaverage = np.average(self.xmag) * 1.18
-        yaverage = np.average(self.ymag) * 1.18
+        xaverage = np.average(self.xmag) * 1.1
+        yaverage = np.average(self.ymag) * 1.1
         zaverage = np.average(self.zmag) * 1.18
-        rollaverage = np.average(self.roll) * 1.18
+        rollaverage = np.average(self.roll) * 1.1
         pitchaverage = np.average(self.pitch) * 1.18
         yawaverage = np.average(self.yaw) * 1.18
 
@@ -287,7 +287,7 @@ class MCN():
         
 
         #convert known information to control variables
-        phival = (phierror - 0.01 * phierra * (self.l*self.bt)/self.jxx - np.average(self.xgyro))*0.6
+        phival = (phierror - 0.01 * phierra * (self.l*self.bt)/self.jxx - np.average(self.xgyro))*0.5
         psival = psierror + 0.001*psierra * self.jzz/(self.bh) 
         thetaval = (thetaerror - 0.01 * thetaerra * (self.l*self.bt)/self.jyy - np.average(self.ygyro))*0.5 
         zval = (zerror + np.average(self.zacc)) * (4*self.mm+self.mq) - np.average(self.zgyro)*0.7
@@ -302,13 +302,13 @@ class MCN():
             psival = (psival)/(np.abs(psival))*180
 
         #scale transfer function outputs to something to be understood by the multicopter
-        sig_roll = (500.0/45.0*(phival + 136.0)) 
+        sig_roll = (500.0/45.0*(phival + 133.0)) 
         sig_pitch = (500.0/45.0*(thetaval + 135.0)) 
         sig_yaw = (500.0/np.pi*(psival + 3*np.pi)) #should always be neutral if don't care about heading  
         if self.saturator < 20:
-            sig_throttle = zval*40.0  - self.oldzval*35.0 + 1445 - 20*(20 - self.saturator)
+            sig_throttle = zval*40.0  - self.oldzval*35.0 + 1463 - 20*(20 - self.saturator)
         else:
-            sig_throttle = zval*40.0 - self.oldzval*35.0 + 1445
+            sig_throttle = zval*40.0 - self.oldzval*35.0 + 1463
         self.oldoldzval = self.oldzval
         self.oldzval = zval
 

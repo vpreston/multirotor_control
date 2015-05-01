@@ -91,7 +91,7 @@ class MCN():
         self.oldthetaerror = 0
         self.oldthetaerrv = 0
         self.last_x = 0
-        self.oldzavallead = 0
+        self.oldoldzval = 0
         self.oldzval = 0
         #set up communications protocol
         self.pub_rc = rospy.Publisher('/send_rc', roscopter.msg.RC)
@@ -287,7 +287,7 @@ class MCN():
         
 
         #convert known information to control variables
-        phival = (phierror - 0.01 * phierra * (self.l*self.bt)/self.jxx - np.average(self.xgyro))*0.5
+        phival = (phierror - 0.01 * phierra * (self.l*self.bt)/self.jxx - np.average(self.xgyro))*0.6
         psival = psierror + 0.001*psierra * self.jzz/(self.bh) 
         thetaval = (thetaerror - 0.01 * thetaerra * (self.l*self.bt)/self.jyy - np.average(self.ygyro))*0.5 
         zval = (zerror + np.average(self.zacc)) * (4*self.mm+self.mq) - np.average(self.zgyro)*0.7
@@ -302,14 +302,16 @@ class MCN():
             psival = (psival)/(np.abs(psival))*180
 
         #scale transfer function outputs to something to be understood by the multicopter
-        sig_roll = (500.0/45.0*(phival + 135.0)) 
+        sig_roll = (500.0/45.0*(phival + 136.0)) 
         sig_pitch = (500.0/45.0*(thetaval + 135.0)) 
         sig_yaw = (500.0/np.pi*(psival + 3*np.pi)) #should always be neutral if don't care about heading  
         if self.saturator < 20:
-            sig_throttle = zval*40.0  - self.oldzval*35.0 + 1440 - 20*(20 - self.saturator)
+            sig_throttle = zval*40.0  - self.oldzval*35.0 + 1445 - 20*(20 - self.saturator)
         else:
-            sig_throttle = zval*40.0 - self.oldzval*35.0 + 1440
+            sig_throttle = zval*40.0 - self.oldzval*35.0 + 1445
+        self.oldoldzval = self.oldzval
         self.oldzval = zval
+
 
         #make sure that errant values do not cause flipping or radical behavior
         if sig_throttle < 1000:

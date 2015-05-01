@@ -306,9 +306,9 @@ class MCN():
         sig_pitch = (500.0/45.0*(thetaval + 135.0)) 
         sig_yaw = (500.0/np.pi*(psival + 3*np.pi)) #should always be neutral if don't care about heading  
         if self.saturator < 20:
-            sig_throttle = zval*40.0  - self.oldzval*20.0 + 800 - 20*(20 - self.saturator)
+            sig_throttle = zval*40.0  - self.oldzval*35.0 + 1440 - 20*(20 - self.saturator)
         else:
-            sig_throttle = zval*40.0 - self.oldzval*20.0 + 800
+            sig_throttle = zval*40.0 - self.oldzval*35.0 + 1440
         self.oldzval = zval
 
         #make sure that errant values do not cause flipping or radical behavior

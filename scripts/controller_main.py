@@ -90,7 +90,6 @@ class MCN():
         self.thetaerra = 0
         self.oldthetaerror = 0
         self.oldthetaerrv = 0
-        self.last_x = 0
         self.oldoldzval = 0
         self.oldzval = 0
         #set up communications protocol
@@ -162,6 +161,7 @@ class MCN():
         self.zmag = np.append(self.zmag, [-float(data.zmag)/100])
 
         if self.armed and self.count == 1:
+            #allow for sensor warm up and arming initialization
             print 'assigning'
             self.xpos_init = (float(data.xmag)/100)
             self.ypos_init = (float(data.ymag)/100)
@@ -241,7 +241,7 @@ class MCN():
         self.pub_rc.publish(self.twist)
 
     def hover_loop(self):
-        # read in a desired vector, account for armed offsets, and go to that position in relative space. Assuming GPS deprived environment. You might consider this dead-reckoning
+        # read in a desired vector, account for armed offsets, and go to that position in relative space. Assuming GPS deprived environment. You might consider this dead-reckoning.
         
         #desired values with offsets
         xd = self.desire['x'] + self.xpos_init
@@ -309,8 +309,6 @@ class MCN():
             sig_throttle = zval*40.0  - self.oldzval*35.0 + 1463 - 20*(20 - self.saturator)
         else:
             sig_throttle = zval*40.0 - self.oldzval*35.0 + 1463
-        self.oldoldzval = self.oldzval
-        self.oldzval = zval
 
 
         #make sure that errant values do not cause flipping or radical behavior
@@ -318,9 +316,6 @@ class MCN():
             sig_throttle = 1000
         elif sig_throttle > 2000:
             sig_throttle = 2000
-
-
-        print [int(sig_throttle)]
 
         #get ready for next loop by reassigning values
         self.oldxerror = xerror
@@ -335,6 +330,8 @@ class MCN():
         self.oldphierrv = phierrv
         self.oldpsierrv = psierrv
         self.oldthetaerrv = thetaerrv
+        self.oldoldzval = self.oldzval
+        self.oldzval = zval
         
         #read in information about joystick in order to determine action
         if self.buttons: #If button pressed
@@ -354,7 +351,7 @@ class MCN():
                 self.commands_serv(4)
                 print 'Failsafe'
 
-        #assuming everything is well, publich the loop to the multicopter, else, land
+        #assuming everything is well, publish the loop to the multicopter, else drop out of the sky
         if self.armed and not self.failsafe:
             self.saturator += 1
             (self.twist[0], self.twist[1], self.twist[2], self.twist[3]) = (int(sig_roll), int(sig_pitch), int(sig_throttle), int(sig_yaw))
